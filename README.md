@@ -120,7 +120,7 @@ kubectl create secret generic db-secret \
 
 # Verify it was created
 kubectl get secret db-secret -o yaml
-
+```
 ---
 
 ### **Step 4: Deploy the Website to Kubernetes**  
