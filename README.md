@@ -111,6 +111,18 @@ kubectl get nodes
 
 ---
 
+### Step 3.5: Create Database Secret
+
+```bash
+kubectl create secret generic db-secret \
+  --from-literal=password=mysecurepassword \
+  --from-literal=db_name=ecom_db
+
+# Verify it was created
+kubectl get secret db-secret -o yaml
+
+---
+
 # **Step 4: Deploy the Website to Kubernetes**  
 
 ### **A. Create a `website-deployment.yaml`**  
@@ -368,16 +380,7 @@ readinessProbe:
 
 ---
 
-# **Step 12: Use Secrets for Sensitive Data**  
-Create a **Secret** for DB credentials:  
-```sh
-kubectl create secret generic db-secret --from-literal=password=mysecurepassword
-```
-**Outcome:** Secure credential management in Kubernetes!  
-
----
-
-# **Step 13: Document Everything**  
+# **Step 12: Document Everything**  
 - Push all files to **GitHub**  
 - Write a **README.md** explaining each step  
 - Consider a **blog post** on Medium/Dev.to  
