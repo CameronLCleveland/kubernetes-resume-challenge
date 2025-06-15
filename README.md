@@ -423,6 +423,134 @@ Congratulations! 🎉 You’ve successfully:
 
 Now, **add this project to your resume** and showcase your Kubernetes skills! 🚀  
 
+## **Troubleshooting Summary**
+
+During this project, I encountered and resolved several real-world issues across deployment stages. Below is a detailed breakdown of the challenges and their solutions, along with key takeaways.
+
+### **1️⃣ Docker Image & Database Connection**  
+**Issue**: The web app failed to connect to MySQL despite successful deployment.  
+**Root Cause**:  
+- Incorrect hostname in connection.php (localhost instead of the Kubernetes service name mysql-service)  
+- Missing environment variables for database credentials  
+
+**Fix**:  
+- Updated DB_HOST to mysql-service in the PHP connection script  
+- Rebuilt the Docker image and redeployed:  
+
+```bash
+docker build -t username/ecom-web:v2 .
+docker push username/ecom-web:v2
+kubectl set image deployment/ecom-web ecom-web=username/ecom-web:v2
+Verification:
+
+bash
+kubectl exec -it [POD_NAME] -- curl http://localhost/ready.php  # Check DB connectivity
+2️⃣ LoadBalancer Not Serving Website
+Issue: The external IP assigned by the LoadBalancer did not display the website.
+Diagnosis Steps:
+
+bash
+kubectl logs -l app=ecom-web
+kubectl describe svc ecom-web-service | grep Selector
+kubectl run busybox --rm -it --image=busybox -- wget -O- http://ecom-web-service
+Root Cause:
+The app was failing silently due to the unresolved database hostname (see Issue 1).
+
+Fix:
+
+Corrected the database connection issue first
+
+Ensured the LoadBalancer service was properly configured:
+
+yaml
+spec:
+  type: LoadBalancer
+  ports:
+    - port: 80
+      targetPort: 80
+  selector:
+    app: ecom-web
+3️⃣ Secrets Needed Earlier Than Expected
+Original Plan: Implement Secrets in Step 12 (Config Management).
+Problem: The app required DB_PASSWORD much earlier (Step 3.5).
+Fix:
+
+bash
+kubectl create secret generic db-secret --from-literal=password=mysecurepassword
+Added to website-deployment.yaml:
+
+yaml
+env:
+  - name: DB_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-secret
+        key: password
+4️⃣ ConfigMap – Dark Mode Feature Toggle
+Issue: The FEATURE_DARK_MODE ConfigMap had no visible effect.
+Root Cause:
+
+Frontend didn't read the environment variable
+
+PHP backend didn't pass the flag to the template
+
+Fix:
+Updated index.php:
+
+php
+$dark_mode = getenv('FEATURE_DARK_MODE') === 'true';
+Verification:
+
+bash
+kubectl get configmap feature-toggle-config -o yaml
+5️⃣ Probes Failing (CrashLoopBackOff)
+Issue: Pods crashed repeatedly after adding livenessProbe and readinessProbe.
+Root Cause: The app lacked /health and /ready endpoints.
+
+Fix:
+Added health.php:
+
+php
+// health.php
+http_response_code(200);
+echo "OK";
+Updated deployment:
+
+yaml
+livenessProbe:
+  httpGet:
+    path: /health.php
+    port: 80
+  initialDelaySeconds: 15
+6️⃣ Config Changes Not Reflecting
+Issue: Updates to website-deployment.yaml didn't trigger pod updates.
+Fix:
+
+bash
+kubectl rollout restart deployment ecom-web
+# OR
+kubectl apply -f website-deployment.yaml  # With changed image tag
+Lessons Learned & Best Practices
+✅ Debugging Methodology:
+
+Layer-by-layer checks (network → service → app)
+
+Use temporary pods (busybox, mysql-client) for connectivity tests
+
+✅ Kubernetes Best Practices:
+
+Always use Services for inter-pod communication (DNS names like mysql-service)
+
+Create Secrets & ConfigMaps before deployments that reference them
+
+Probes are critical—ensure /health and /ready endpoints exist
+
+✅ CI/CD Improvements:
+
+Rebuild and retag images for every change (e.g., v1, v2)
+
+Automate rollouts using kubectl rollout status
+
 **Next Steps:**  
 - Explore **Ingress Controllers (Nginx, Traefik)**  
 - Learn **Kubernetes Monitoring (Prometheus, Grafana)**  
